@@ -37,11 +37,15 @@ class TestPyPP(unittest.TestCase):
   def setUp(self):
     pass
   def line_tester(self, file):
-    return lambda line : self.assertEqual(next(file), line + '\n')
+    it = iter(file)
+    return lambda line : self.assertEqual(next(it), line + '\n')
+  def run_test(self, name, values = {}):
+    with open('test/golden/%s.gold' % name, 'r') as file:
+      pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
   def test_simple_00(self):
-    with open('test/golden/simple.00.gold', 'r') as file:
-      pypp.preprocess('test/input/simple.00.in', {}, self.line_tester(file))
+    self.run_test('simple.00')
+  def test_replace_00(self):
+    self.run_test('replace.00', {'place':'World'} )
 
 if __name__ == '__main__':
   unittest.main()
-

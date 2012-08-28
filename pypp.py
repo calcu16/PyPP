@@ -38,6 +38,7 @@ def preprocess(name, values, output=print):
         except StopIteration:
             current.close()
             current = None
-        line = line.rstrip()
-        if line:
-            output(line % values)
+        else:
+            line = line.rstrip()
+            if line:
+                output(line % values)
