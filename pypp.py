@@ -36,7 +36,7 @@ defaults = {
   '__indent__' : ''
 }
 
-def preprocess(name, seed, output=print):
+def preprocess(name, values, output=print):
   global directives, defaults
   if not output:
     output = lambda a : a
@@ -45,18 +45,17 @@ def preprocess(name, seed, output=print):
   
   
   
-  stack  = [None]
-  values = dict(defaults)
-  values.update(seed)
+  stack  = [dict(defaults)]
+  stack[-1].update(values)
   match  = None
-  # values
+  
   def push():
-    nonlocal stack, match, values
-    stack.append(dict(values))
-    values['__indent__'] += match.group('indent')
+    nonlocal stack, match
+    stack.append(dict(stack[-1]))
+    stack[-1]['__indent__'] += match.group('indent')
   def pop():
-    nonlocal stack, values
-    values = stack.pop()
+    nonlocal stack
+    stack.pop()
   while current:
     try:
       line = next(current)
@@ -73,7 +72,7 @@ def preprocess(name, seed, output=print):
       if not line:
         pass
       elif not match:
-        output(values['__indent__'] + line % values)
+        output(stack[-1]['__indent__'] + line % stack[-1])
       elif match.group('directive') in ['include','inside']:
         old = current
         current = open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r') if match.group('name') else inner.pop()
