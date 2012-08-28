@@ -29,7 +29,7 @@ from os import path
 from re import compile as regex
 
 directives = (
-  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?:"(?P<name>.*)")?'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
 )
 
 def preprocess(name, values, output=print):
@@ -70,6 +70,6 @@ def preprocess(name, values, output=print):
         output(indent + line % values)
       elif match.group('directive') in ['include','inside']:
         old = current
-        current = open(path.join(path.dirname(current.name), match.group('name')), 'r') if match.group('name') else inner.pop()
+        current = open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r') if match.group('name') else inner.pop()
         (outer if match.group('directive') == 'include' else inner).append(old)
         push()
