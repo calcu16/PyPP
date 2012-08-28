@@ -1,0 +1,9 @@
+#define test
+#define test2
+Hello World!
+#if test
+Goodbye Moon!
+#elif test2
+Where am I?
+#end
+

@@ -1,0 +1,6 @@
+#define test something
+#if test
+Hello World!
+#else
+Goodbye Moon!
+#end

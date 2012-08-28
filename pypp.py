@@ -40,10 +40,14 @@ defaults = {
   '__indent__' : ''
 }
 
-def copy_file(self):
+class copy_file(object):
   def __init__(self, file):
     self.file = file
-  def __close__(self):
+  def __iter__(self):
+    return self
+  def __next__(self):
+    return next(self.file)
+  def close(self):
     pass
 
 def preprocess(name, values, output=print):
@@ -51,7 +55,7 @@ def preprocess(name, values, output=print):
   if not output:
     output = lambda a : a
   current = open(name, 'r')
-  inner, outer = [None], [None]
+  inner, outer = [], []
   
   stack  = [dict(defaults)]
   stack[-1].update(values)
@@ -67,7 +71,10 @@ def preprocess(name, values, output=print):
     nonlocal stack, current
     stack.pop()
     current.close()
-    current = outer.pop()
+    try:
+      current = outer.pop()
+    except IndexError:
+      current = None
   while current:
     try:
       line = next(current)
@@ -85,19 +92,28 @@ def preprocess(name, values, output=print):
         pass
       elif not match:
         output(stack[-1]['__indent__'] + line % stack[-1])
-      elif ignoring and match.group('directive') == 'end':
-        ignoring -= 1
+      elif match.group('directive') == 'end':
+        if ignoring:
+          ignoring -= 1
+        if not ignoring:
+          pop()
       elif ignoring and match.group('directive') in ['if','ifn','ifdef','ifndef']:
         ignoring += 1
       elif ignoring <= 1 and match.group('directive') == 'else':
         ignoring = not ignoring
+      elif ignoring <= 1 and match.group('directive') in ['elif','elifn','elifdef','elifndef']:
+        ignoring = not ignoring or \
+                    (('n' in match.group('directive')) !=
+                      ((match.group('name') in values)
+                        if match.group('directive').endswith('def')
+                        else values[match.group('name')]))
       elif ignoring:
         pass
       elif match.group('directive') in ['include','inside']:
         old = current
+        push()
         current = open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r') if match.group('name') else inner.pop()
         (outer if match.group('directive') == 'include' else inner).append(old)
-        push()
       elif match.group('directive') in ['define','local']:
         for values in reversed(stack):
           values[match.group('name')] = match.group('value')
@@ -108,10 +124,6 @@ def preprocess(name, values, output=print):
                     ((match.group('name') in values)
                       if match.group('directive').endswith('def')
                       else values[match.group('name')]))
-        if not ignoring:
-          push()
-          outer.append(current)
-          current = copy_file(current)
-      elif match.group('directive') == 'end':
-        pop()
-      
+        push()
+        outer.append(current)
+        current = copy_file(current)
