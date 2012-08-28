@@ -29,7 +29,7 @@ from os import path
 from re import compile as regex
 
 directives = (
-  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*"(?P<name>.*)"'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?:"(?P<name>.*)")?'''),
 )
 
 def preprocess(name, values, output=print):
@@ -41,6 +41,7 @@ def preprocess(name, values, output=print):
   
   stack  = [(None, None)]
   indent = ""
+  values = dict(values)
   match  = None
   # values
   def push():
