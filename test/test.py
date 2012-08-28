@@ -53,6 +53,10 @@ class TestPyPP(unittest.TestCase):
     self.run_test('include.01')
   def test_inside_00(self):
     self.run_test('inside.00')
+  def test_global_00(self):
+    self.run_test('global.00')
+  def test_local_00(self):
+    self.run_test('local.00')
 
 if __name__ == '__main__':
   unittest.main()

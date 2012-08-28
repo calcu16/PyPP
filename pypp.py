@@ -30,6 +30,8 @@ from re import compile as regex
 
 directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S*)\s(?P<value>.*)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>undef|ignore)\s*(?P<name>\S*)'''),
 )
 
 defaults = {
@@ -43,8 +45,6 @@ def preprocess(name, values, output=print):
   current = open(name, 'r')
   inner, outer = [None], [None]
   
-  
-  
   stack  = [dict(defaults)]
   stack[-1].update(values)
   match  = None
@@ -54,14 +54,14 @@ def preprocess(name, values, output=print):
     stack.append(dict(stack[-1]))
     stack[-1]['__indent__'] += match.group('indent')
   def pop():
-    nonlocal stack
+    nonlocal stack, current
     stack.pop()
+    current.close()
+    current = outer.pop()
   while current:
     try:
       line = next(current)
     except StopIteration:
-      current.close()
-      current = outer.pop()
       pop()
     else:
       line = line.rstrip()
@@ -78,3 +78,9 @@ def preprocess(name, values, output=print):
         current = open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r') if match.group('name') else inner.pop()
         (outer if match.group('directive') == 'include' else inner).append(old)
         push()
+      elif match.group('directive') in ['define','local']:
+        for values in reversed(stack):
+          values[match.group('name')] = match.group('value')
+          if match.group('directive') == 'local':
+            break
+          

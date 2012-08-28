@@ -1,0 +1,2 @@
+#local test Hello
+%(test)s World!
