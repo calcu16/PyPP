@@ -26,6 +26,7 @@
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
 import glob
+import functools
 import os
 import sys
 import unittest
@@ -42,16 +43,19 @@ class TestPyPP(unittest.TestCase):
     if os.path.exists('test/golden/%s.gold' % name):
       with open('test/golden/%s.gold' % name, 'r') as file:
         pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
-        try:
-          line = next(file)
-        except StopIteration:
-          pass
+        self.assertRaises(StopIteration, next, file)
     else:
-      pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(('Hello World!\n',)))
+      it = iter(('Hello World!\n',))
+      pypp.preprocess('test/input/%s.in' % name, output=self.line_tester(it))
+      self.assertRaises(StopIteration, next, it)
+
+def addTest(name):
+  decorator = unittest.expectedFailure if name.startswith('_') else (lambda a : a)
+  setattr(TestPyPP, 'test_' + name.replace('.','_'), decorator(lambda self : self.run_test(name)))
+  
 
 for path in glob.iglob('test/input/*.in'):
-  name = os.path.basename(path).rsplit('.',1)[0]
-  setattr(TestPyPP, 'test_' + name.replace('.','_'), lambda self : self.run_test(name))
+  addTest(os.path.basename(path).rsplit('.',1)[0])
 
 if __name__ == '__main__':
   unittest.main()
