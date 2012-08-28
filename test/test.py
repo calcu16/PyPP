@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2012 Andrew Carter
 # All rights reserved.
 #
@@ -25,9 +25,6 @@
 # The views and conclusions contained in the software and documentation are those
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
-
-from __future__ import print_function
-
 import unittest
 import sys
 
@@ -46,6 +43,8 @@ class TestPyPP(unittest.TestCase):
     self.run_test('simple.00')
   def test_replace_00(self):
     self.run_test('replace.00', {'place':'World'} )
+  def test_include_00(self):
+    self.run_test('include.00')
 
 if __name__ == '__main__':
   unittest.main()

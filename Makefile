@@ -34,4 +34,4 @@ endif
 export PYTHONPATH:=$(pythonpath)
 
 tests:
-	python test/test.py
+	python3 test/test.py

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2012 Andrew Carter
 # All rights reserved.
 #
@@ -25,20 +25,46 @@
 # The views and conclusions contained in the software and documentation are those
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
-from __future__ import print_function
+from os import path
+from re import compile as regex
+
+directives = (
+  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*"(?P<name>.*)"'''),
+)
 
 def preprocess(name, values, output=print):
-    global directives
-    if not output:
-        output = lambda a : a
-    current = open(name, 'r')
-    while current:
-        try:
-            line = next(current)
-        except StopIteration:
-            current.close()
-            current = None
-        else:
-            line = line.rstrip()
-            if line:
-                output(line % values)
+  global directives
+  if not output:
+    output = lambda a : a
+  current = open(name, 'r')
+  inner, outer = [None], [None]
+  
+  stack = []
+  indent = ""
+  # values
+  def push():
+    stack.append((indent, values))
+  def pop():
+    nonlocal indent, values
+    indent, value = stack.pop()
+  
+  while current:
+    try:
+      line = next(current)
+    except StopIteration:
+      current.close()
+      current = outer.pop()
+    else:
+      line = line.rstrip()
+      try:
+        match = next(match for match in (directive.match(line) for directive in directives) if match)
+      except StopIteration:
+        match = None
+      if not line:
+        pass
+      elif not match:
+        output(line % values)
+      elif match.group('directive') in ['include','inside']:
+        old = current
+        current = open(path.join(path.dirname(current.name), match.group('name')), 'r') if match.group('name') else inner.pop()
+        (outer if match.group('directive') == 'include' else inner).append(old)
