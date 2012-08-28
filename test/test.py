@@ -25,6 +25,7 @@
 # The views and conclusions contained in the software and documentation are those
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
+import glob
 import os
 import sys
 import unittest
@@ -47,22 +48,10 @@ class TestPyPP(unittest.TestCase):
           pass
     else:
       pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(('Hello World!\n',)))
-  def test_simple_00(self):
-    self.run_test('simple.00')
-  def test_replace_00(self):
-    self.run_test('replace.00', {'place':'World'} )
-  def test_include_00(self):
-    self.run_test('include.00')
-  def test_include_01(self):
-    self.run_test('include.01')
-  def test_inside_00(self):
-    self.run_test('inside.00')
-  def test_global_00(self):
-    self.run_test('global.00')
-  def test_local_00(self):
-    self.run_test('local.00')
-  def test_if_00(self):
-    self.run_test('if.00')
+
+for path in glob.iglob('test/input/*.in'):
+  name = os.path.basename(path).rsplit('.',1)[0]
+  setattr(TestPyPP, 'test_' + name.replace('.','_'), lambda self : self.run_test(name))
 
 if __name__ == '__main__':
   unittest.main()

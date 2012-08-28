@@ -1,3 +1,4 @@
-#ifndef test
+#define test something
+#if test
 Hello World!
 #end

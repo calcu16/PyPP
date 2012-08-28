@@ -30,7 +30,7 @@ from re import compile as regex
 
 directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S*)\s(?P<value>.*)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S*)\s?(?P<value>.*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>undef|ignore)\s*(?P<name>\S*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end)'''),
