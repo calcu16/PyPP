@@ -39,12 +39,18 @@ class TestPyPP(unittest.TestCase):
   def run_test(self, name, values = {}):
     with open('test/golden/%s.gold' % name, 'r') as file:
       pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
+      try:
+        line = next(file)
+      except StopIteration:
+        pass
   def test_simple_00(self):
     self.run_test('simple.00')
   def test_replace_00(self):
     self.run_test('replace.00', {'place':'World'} )
   def test_include_00(self):
     self.run_test('include.00')
+  def test_include_01(self):
+    self.run_test('include.01')
 
 if __name__ == '__main__':
   unittest.main()

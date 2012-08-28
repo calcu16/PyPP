@@ -39,21 +39,24 @@ def preprocess(name, values, output=print):
   current = open(name, 'r')
   inner, outer = [None], [None]
   
-  stack = []
+  stack  = [(None, None)]
   indent = ""
+  match  = None
   # values
   def push():
-    stack.append((indent, values))
+    nonlocal match, indent, values
+    stack.append((indent, dict(values)))
+    indent += match.group('indent')
   def pop():
     nonlocal indent, values
     indent, value = stack.pop()
-  
   while current:
     try:
       line = next(current)
     except StopIteration:
       current.close()
       current = outer.pop()
+      pop()
     else:
       line = line.rstrip()
       try:
@@ -63,8 +66,9 @@ def preprocess(name, values, output=print):
       if not line:
         pass
       elif not match:
-        output(line % values)
+        output(indent + line % values)
       elif match.group('directive') in ['include','inside']:
         old = current
         current = open(path.join(path.dirname(current.name), match.group('name')), 'r') if match.group('name') else inner.pop()
         (outer if match.group('directive') == 'include' else inner).append(old)
+        push()
