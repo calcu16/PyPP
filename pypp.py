@@ -32,25 +32,31 @@ directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
 )
 
-def preprocess(name, values, output=print):
-  global directives
+defaults = {
+  '__indent__' : ''
+}
+
+def preprocess(name, seed, output=print):
+  global directives, defaults
   if not output:
     output = lambda a : a
   current = open(name, 'r')
   inner, outer = [None], [None]
   
-  stack  = [(None, None)]
-  indent = ""
-  values = dict(values)
+  
+  
+  stack  = [None]
+  values = dict(defaults)
+  values.update(seed)
   match  = None
   # values
   def push():
-    nonlocal match, indent, values
-    stack.append((indent, dict(values)))
-    indent += match.group('indent')
+    nonlocal stack, match, values
+    stack.append(dict(values))
+    values['__indent__'] += match.group('indent')
   def pop():
-    nonlocal indent, values
-    indent, value = stack.pop()
+    nonlocal stack, values
+    values = stack.pop()
   while current:
     try:
       line = next(current)
@@ -67,7 +73,7 @@ def preprocess(name, values, output=print):
       if not line:
         pass
       elif not match:
-        output(indent + line % values)
+        output(values['__indent__'] + line % values)
       elif match.group('directive') in ['include','inside']:
         old = current
         current = open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r') if match.group('name') else inner.pop()

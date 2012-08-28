@@ -1,7 +1,7 @@
-no indentation
-	one indent
-		two indents
+no indentation 0
+	one indent 0
+		two indents 0
 			three indents
-		two indents
-	one indent
-no indentation
+		two indents 1
+	one indent 1
+no indentation 1
