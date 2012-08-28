@@ -25,8 +25,9 @@
 # The views and conclusions contained in the software and documentation are those
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
-import unittest
+import os
 import sys
+import unittest
 
 import pypp
 
@@ -37,12 +38,15 @@ class TestPyPP(unittest.TestCase):
     it = iter(file)
     return lambda line : self.assertEqual(next(it), line + '\n')
   def run_test(self, name, values = {}):
-    with open('test/golden/%s.gold' % name, 'r') as file:
-      pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
-      try:
-        line = next(file)
-      except StopIteration:
-        pass
+    if os.path.exists('test/golden/%s.gold' % name):
+      with open('test/golden/%s.gold' % name, 'r') as file:
+        pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
+        try:
+          line = next(file)
+        except StopIteration:
+          pass
+    else:
+      pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(('Hello World!\n',)))
   def test_simple_00(self):
     self.run_test('simple.00')
   def test_replace_00(self):

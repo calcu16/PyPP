@@ -108,7 +108,7 @@ def preprocess(name, values, output=print):
                     ((match.group('name') in values)
                       if match.group('directive').endswith('def')
                       else values[match.group('name')]))
-        if ignoring:
+        if not ignoring:
           push()
           outer.append(current)
           current = copy_file(current)
