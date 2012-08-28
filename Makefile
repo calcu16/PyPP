@@ -35,3 +35,6 @@ export PYTHONPATH:=$(pythonpath)
 
 tests:
 	python3 test/test.py
+
+clean:
+	rm -rf __pycache__
