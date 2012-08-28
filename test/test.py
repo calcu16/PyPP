@@ -57,6 +57,8 @@ class TestPyPP(unittest.TestCase):
     self.run_test('global.00')
   def test_local_00(self):
     self.run_test('local.00')
+  def test_if_00(self):
+    self.run_test('if.00')
 
 if __name__ == '__main__':
   unittest.main()

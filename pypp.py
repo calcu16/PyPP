@@ -32,11 +32,19 @@ directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S*)\s(?P<value>.*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>undef|ignore)\s*(?P<name>\S*)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>end)'''),
 )
 
 defaults = {
   '__indent__' : ''
 }
+
+def copy_file(self):
+  def __init__(self, file):
+    self.file = file
+  def __close__(self):
+    pass
 
 def preprocess(name, values, output=print):
   global directives, defaults
@@ -48,6 +56,8 @@ def preprocess(name, values, output=print):
   stack  = [dict(defaults)]
   stack[-1].update(values)
   match  = None
+  
+  ignoring = 0
   
   def push():
     nonlocal stack, match
@@ -71,8 +81,18 @@ def preprocess(name, values, output=print):
         match = None
       if not line:
         pass
+      elif ignoring and not match:
+        pass
       elif not match:
         output(stack[-1]['__indent__'] + line % stack[-1])
+      elif ignoring and match.group('directive') == 'end':
+        ignoring -= 1
+      elif ignoring and match.group('directive') in ['if','ifn','ifdef','ifndef']:
+        ignoring += 1
+      elif ignoring <= 1 and match.group('directive') == 'else':
+        ignoring = not ignoring
+      elif ignoring:
+        pass
       elif match.group('directive') in ['include','inside']:
         old = current
         current = open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r') if match.group('name') else inner.pop()
@@ -83,4 +103,15 @@ def preprocess(name, values, output=print):
           values[match.group('name')] = match.group('value')
           if match.group('directive') == 'local':
             break
-          
+      elif match.group('directive') in ['if','ifn','ifdef','ifndef']:
+        ignoring = (('n' in match.group('directive')) !=
+                    ((match.group('name') in values)
+                      if match.group('directive').endswith('def')
+                      else values[match.group('name')]))
+        if ignoring:
+          push()
+          outer.append(current)
+          current = copy_file(current)
+      elif match.group('directive') == 'end':
+        pop()
+      
