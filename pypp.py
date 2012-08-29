@@ -32,7 +32,7 @@ from re import compile as regex
 
 directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?\s*$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\w+)\s?(?P<value>".*")?\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?:(?P<level>\d+)\s+)?(?P<name>\w+)\s?(?P<value>".*")?\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\w*)\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
@@ -77,6 +77,7 @@ def preprocess(name, values={}, output=print):
   
   stack  = [dict(defaults)]
   stack[-1].update(values)
+  stack.append(dict(stack[-1]))
   stack[-1]['__FILE__'] = path.abspath(name)
   stack[-1]['__LINE__'] = 0
   match  = None
@@ -123,7 +124,7 @@ def preprocess(name, values={}, output=print):
           output(stack[-1]['__INDENT__'] + line % stack[-1])
         elif not match.group('directive'):
           stack[-1]['__DIRECTIVE__'] = line
-          raise Exception("""Bad directive in "%(__FILE__)s" on line %(__LINE__)s : '''%(__DIRECTIVE__)'''""" % stack[-1])
+          raise Exception("""Bad directive in "%(__FILE__)s" on line %(__LINE__)s : '''%(__DIRECTIVE__)s'''""" % stack[-1])
         elif match.group('directive') == 'end':
           if ignoring:
             ignoring -= 1
@@ -154,12 +155,15 @@ def preprocess(name, values={}, output=print):
             new_file = inner.pop()
           push(file_stack=side, next_file=new_file)
         elif match.group('directive') in ['define','local']:
-          for values in reversed(stack):
+          level = match.group('level') if match.group('level') else 0
+          if match.group('directive') == 'define':
+            level = len(stack) - level
+          for i, values in enumerate(reversed(stack)):
             if match.group('name'):
               values[match.group('name')] = match.group('value')[1:-1] % values
             else:
               del values[match.group('name')]
-            if match.group('directive') == 'local':
+            if level == i:
               break
         elif match.group('directive') == 'for':
           value = match.group('value')
@@ -190,3 +194,7 @@ def preprocess(name, values={}, output=print):
         #elif comment directive
         #  pass
         break
+  return values
+
+if __name__ == '__main__':
+  import argparse
