@@ -1,5 +1,5 @@
-#define test
-#define test2
+#define test ""
+#define test2 ""
 #if test
 Goodbye Moon!
 #elif test2

@@ -1,4 +1,4 @@
-#define test something
+#define test "something"
 #if test
 Hello World!
 #end

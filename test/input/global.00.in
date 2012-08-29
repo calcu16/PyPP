@@ -1,2 +1,2 @@
-#define test Hello
+#define test "Hello"
 %(test)s World!

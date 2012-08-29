@@ -1,2 +1,2 @@
-#define __indent__ Hello 
- World!
+#define __INDENT__ "Hello "
+World!

@@ -26,22 +26,26 @@
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
 from ast import literal_eval
+from datetime import datetime
 from os import path
 from re import compile as regex
 
 directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>.*)'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>undef|ignore)\s*(?P<name>\S+)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>".*")?'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?P<name>\S*)\s*(?P<value>\S+)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)'''),
 )
 
+today = datetime.today()
+
 defaults = {
   '' : '',
-  '__indent__' : '',
+  '__INDENT__' : '',
+  '__DATE__' : today.strftime('%b %d %Y'),
+  '__TIME__' : today.strftime('%H:%M:%S'),
 }
 
 class copy_file(object):
@@ -69,6 +73,8 @@ def preprocess(name, values={}, output=print):
   
   stack  = [dict(defaults)]
   stack[-1].update(values)
+  stack[-1]['__file__'] = path.abspath(name)
+  stack[-1]['__line__'] = 0
   match  = None
   
   ignoring = 0
@@ -76,7 +82,10 @@ def preprocess(name, values={}, output=print):
   def push(file_stack=outer, next_file=None):
     nonlocal stack, match, current
     stack.append(dict(stack[-1]))
-    stack[-1]['__indent__'] += match.group('indent')
+    stack[-1]['__INDENT__'] += match.group('indent')
+    if next_file:
+      stack[-1]['__file__'] = path.abspath(next_file.name)
+      stack[-1]['__line__'] = 0
     file_stack.append(current)
     current = next_file if next_file else copy_file(current)
   def pop():
@@ -89,6 +98,7 @@ def preprocess(name, values={}, output=print):
       current = None
   while current:
     line = current.readline()
+    stack[-1]['__line__'] = int(stack[-1]['__line__']) + 1
     if not line:
       pop()
     else:
@@ -103,7 +113,7 @@ def preprocess(name, values={}, output=print):
         elif ignoring and not match:
           pass
         elif not match:
-          output(stack[-1]['__indent__'] + line % stack[-1])
+          output(stack[-1]['__INDENT__'] + line % stack[-1])
         elif match.group('directive') == 'end':
           if ignoring:
             ignoring -= 1
@@ -130,7 +140,10 @@ def preprocess(name, values={}, output=print):
                 if match.group('name') else inner.pop())
         elif match.group('directive') in ['define','local']:
           for values in reversed(stack):
-            values[match.group('name')] = match.group('value') % values
+            if match.group('name'):
+              values[match.group('name')] = match.group('value')[1:-1] % values
+            else:
+              del values[match.group('name')]
             if match.group('directive') == 'local':
               break
         elif match.group('directive') == 'for':

@@ -1,2 +1,2 @@
-#local test Hello
+#local test "Hello"
 %(test)s World!

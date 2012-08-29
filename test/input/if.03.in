@@ -1,4 +1,4 @@
-#define test
+#define test ""
 #if test
 Goodbye Moon!
 #else
