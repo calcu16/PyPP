@@ -140,13 +140,13 @@ def preprocess(name, values={}, output=print):
         elif ignoring <= 1 and match.group('directive') in ['elif','elifn','elifdef','elifndef']:
           ignoring = not ignoring or \
                       (('n' in match.group('directive')) ==
-                        bool((match.group('name') in values)
+                        bool((match.group('name') in stack[-1])
                           if match.group('directive').endswith('def')
-                          else values[match.group('name')]))
+                          else stack[-1][match.group('name')]))
         elif ignoring:
           pass
         elif match.group('directive') == '#':
-          line = match.group('value') % values
+          line = match.group('value') % stack[-1]
           continue
         elif match.group('directive') in ['include','inside']:
           side = outer if match.group('directive') == 'include' else inner
@@ -158,7 +158,7 @@ def preprocess(name, values={}, output=print):
             new_file = inner.pop()
           push(file_stack=side, next_file=new_file)
         elif match.group('directive') in ['define','local']:
-          level = match.group('level') if match.group('level') else 0
+          level = int(match.group('level') if match.group('level') else 0)
           if match.group('directive') == 'define':
             level = len(stack) - level
           for i, values in enumerate(reversed(stack)):
@@ -190,15 +190,16 @@ def preprocess(name, values={}, output=print):
                 stack[-1].update(v)
         elif match.group('directive') in ['if','ifn','ifdef','ifndef']:
           ignoring = (('n' in match.group('directive')) ==
-                      bool((match.group('name') in values)
+                      bool((match.group('name') in stack[-1])
                         if match.group('directive').endswith('def')
-                        else values[match.group('name')]))
+                        else stack[-1][match.group('name')]))
           push()
         #elif comment directive
         #  pass
         break
-  return stack[-1]
+  return stack[0]
 
+# command line utility
 if __name__ == '__main__':
   from sys import argv
   values = {}

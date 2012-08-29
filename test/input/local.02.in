@@ -1,0 +1,6 @@
+#local test "0"
+#ifn
+#local test "1"
+%(test)s
+#end
+%(test)s
