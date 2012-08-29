@@ -25,6 +25,8 @@
 # The views and conclusions contained in the software and documentation are those
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
+'''This module provides a text preprocessor for python.
+'''
 from ast import literal_eval
 from datetime import datetime
 from os import path
@@ -32,15 +34,21 @@ from re import compile as regex
 
 # regex for matching various directives
 directives = (
-  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?\s*$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?:(?P<level>\d+)\s+)?(?P<name>\w+)\s?(?P<value>".*")?\s*$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\w*)\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)(?:\s+(?P<name>".*"))?\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s+(?:(?P<level>\d+)\s+)?(?P<name>\w+)\s+(?P<value>".*")?\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)(?:\s+(?P<name>\w+))?\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s+(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
+# catch malformed directives
+  regex(r'''(?P<directive>)(?P<valid>\s*[#](?:include|inside)(\s+".*"?)?\s*)'''),
+  regex(r'''(?P<directive>)(?P<valid>\s*[#](?:define|local)(\s+(?:\d+\s+)?(?:\w+\s+(?:".*")?)?)?\s*)'''),
+  regex(r'''(?P<directive>)(?P<valid>\s*[#](?:(?:el)?ifn?(?:def)?)(?:\s+\w+)?\s*)'''),
+  regex(r'''(?P<directive>)(?P<valid>\s*[#](?:for)(?:\s+(?:\w+\s+)?(?:".*"|\w+))?\s*)'''),
+  regex(r'''(?P<directive>)(?P<valid>\s*[#](?:end|else)\s*)'''),
 # catch directive-like objects, probably an error
-  regex(r'''(?P<indent>\s*)[#](?P<directive>)(?P<value>.*)$'''),
+  regex(r'''(?P<directive>)(?P<valid>\s*[#]).*$'''),
 )
 
 # provide __DATE__/__TIME__ for file generation timestamps
@@ -48,6 +56,7 @@ today = datetime.today()
 
 # set of default values
 defaults = {
+  None : '',
   '' : '',
   '__INDENT__' : '',
   '__DATE__' : today.strftime('%b %d %Y'),
@@ -56,23 +65,51 @@ defaults = {
 }
 
 class copy_file(object):
+  '''A file wrapper that holds the state of the file on creation.
+  
+  DESCRIPTION:
+    This wrapper is designed to allow the file to be read from externally,
+    and then access the file via this wrapper to read the file
+    as if it hadn't been read from.
+    
+    Reading from this file modifies the original placement, and reading from
+    the file externally after the wrapper has been read from once modifies
+    what the file will read when read through the wrapper.
+  
+  FIELDS:
+    file   : The file this function is handling.
+    name   : The name the file has been opened with.
+    closed : Whether this wrapper is closed, does not indicate whether the original file is closed.
+    offset : The offset on creation, None if the wrapper has been read from.
+  '''
   def __init__(self, file):
+    '''Creates a copy of file
+    
+    Argument:
+      file : The file to copy
+    '''
     self.file = file
     self.name = file.name
     self.closed = file.closed
     self.offset = file.tell()
   def readline(self):
+    if self.closed:
+      raise ValueError("I/O operation on closed file.")
     if self.offset is not None:
       self.seek(self.offset)
       self.offset = None
     return self.file.readline()
   def close(self):
-    pass
+    self.closed = True
   def tell(self):
+    if self.closed:
+      raise ValueError("I/O operation on closed file.")
     return self.file.tell() if self.offset is None else self.offset
   def seek(self, offset):
+    if self.closed:
+      raise ValueError("I/O operation on closed file.")
     self.file.seek(offset)
-
+  
 def preprocess(name, values={}, output=print):
   global directives, defaults
   if not output:
@@ -131,7 +168,7 @@ def preprocess(name, values={}, output=print):
           output(stack[-1]['__INDENT__'] + line % stack[-1])
         elif not match.group('directive'):
           stack[-1]['__DIRECTIVE__'] = line
-          raise Exception("""Bad directive in "%(__FILE__)s" on line %(__LINE__)s : '''%(__DIRECTIVE__)s'''""" % stack[-1])
+          raise SyntaxError("""Invalid directive""", (stack[-1]['__FILE__'], stack[-1]['__LINE__'], len(match.group('valid')), line))
         elif match.group('directive') == 'end':
           if ignoring:
             ignoring -= 1
