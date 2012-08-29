@@ -48,6 +48,7 @@ defaults = {
   '__INDENT__' : '',
   '__DATE__' : today.strftime('%b %d %Y'),
   '__TIME__' : today.strftime('%H:%M:%S'),
+  '__LEVEL__' : 0,
 }
 
 class copy_file(object):
@@ -80,6 +81,7 @@ def preprocess(name, values={}, output=print):
   stack.append(dict(stack[-1]))
   stack[-1]['__FILE__'] = path.abspath(name)
   stack[-1]['__LINE__'] = 0
+  stack[-1]['__LEVEL__'] = 1
   match  = None
   
   ignoring = 0
@@ -93,6 +95,7 @@ def preprocess(name, values={}, output=print):
     if next_file:
       stack[-1]['__FILE__'] = path.abspath(next_file.name)
       stack[-1]['__LINE__'] = 0
+      stack[-1]['__LEVEL__'] = int(stack[-1]['__LEVEL__']) + 1
     file_stack.append(current)
     current = next_file if next_file else copy_file(current)
   def pop():
@@ -194,7 +197,10 @@ def preprocess(name, values={}, output=print):
         #elif comment directive
         #  pass
         break
-  return values
+  return stack[-1]
 
 if __name__ == '__main__':
-  import argparse
+  from sys import argv
+  values = {}
+  for filename in argv[1:]:
+    values = preprocess(filename, values)
