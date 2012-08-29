@@ -30,6 +30,7 @@ from datetime import datetime
 from os import path
 from re import compile as regex
 
+# regex for matching various directives
 directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?:(?P<level>\d+)\s+)?(?P<name>\w+)\s?(?P<value>".*")?\s*$'''),
@@ -38,11 +39,14 @@ directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
+# catch directive-like objects, probably an error
   regex(r'''(?P<indent>\s*)[#](?P<directive>)(?P<value>.*)$'''),
 )
 
+# provide __DATE__/__TIME__ for file generation timestamps
 today = datetime.today()
 
+# set of default values
 defaults = {
   '' : '',
   '__INDENT__' : '',
@@ -95,7 +99,7 @@ def preprocess(name, values={}, output=print):
     if next_file:
       stack[-1]['__FILE__'] = path.abspath(next_file.name)
       stack[-1]['__LINE__'] = 0
-      stack[-1]['__LEVEL__'] = int(stack[-1]['__LEVEL__']) + 1
+      stack[-1]['__LEVEL__'] = len(stack) - 1
     file_stack.append(current)
     current = next_file if next_file else copy_file(current)
   def pop():
