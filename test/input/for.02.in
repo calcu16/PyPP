@@ -1,0 +1,3 @@
+#for "({'a' : 'Hello'}, {'b' : 'World'})"
+%(a)s %(b)s!
+#end

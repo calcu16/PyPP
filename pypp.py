@@ -35,7 +35,7 @@ directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>".*")?'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\S+)\s+)?(?P<value>\S+)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\S+)\s+)?(?P<value>(?:".*"|\S+))\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)'''),
 )
 
@@ -154,7 +154,11 @@ def preprocess(name, values={}, output=print):
             if match.group('directive') == 'local':
               break
         elif match.group('directive') == 'for':
-          value = stack[-1][match.group('value')]
+          value = match.group('value')
+          if value[0] == '"':
+            value = value[1:-1]
+          else:
+            value = stack[-1][match.group('value')]
           if isinstance(value,str):
             value = literal_eval(value)
           if not len(value):
