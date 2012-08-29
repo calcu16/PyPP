@@ -31,12 +31,14 @@ from os import path
 from re import compile as regex
 
 directives = (
-  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>".*")?'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>".*")?\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\S+)\s+)?(?P<value>(?:".*"|\S+))\s*$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>)(?P<value>.*)$'''),
 )
 
 today = datetime.today()
@@ -81,9 +83,11 @@ def preprocess(name, values={}, output=print):
   
   ignoring = 0
   
-  def push(file_stack=outer, next_file=None):
+  def push(file_stack=outer, next_file=None, values=None):
     nonlocal stack, match, current
-    stack.append(dict(stack[-1]))
+    if not values:
+      values = stack[-1]
+    stack.append(dict(values))
     stack[-1]['__INDENT__'] += match.group('indent')
     if next_file:
       stack[-1]['__file__'] = path.abspath(next_file.name)
@@ -110,12 +114,16 @@ def preprocess(name, values={}, output=print):
           match = next(match for match in (directive.match(line) for directive in directives) if match)
         except StopIteration:
           match = None
+        # Giant if statement of death, yay parsing
         if not line:
           pass
         elif ignoring and not match:
           pass
         elif not match:
           output(stack[-1]['__INDENT__'] + line % stack[-1])
+        elif not match.group('directive'):
+          stack[-1]['__DIRECTIVE__'] = line
+          raise Exception("""Bad directive in "%(__FILE__)s" on line %(__LINE__)s : '''%(__DIRECTIVE__)'''""" % stack[-1])
         elif match.group('directive') == 'end':
           if ignoring:
             ignoring -= 1
@@ -144,7 +152,7 @@ def preprocess(name, values={}, output=print):
             new_file = open(path.join(loc, rel), 'r')
           else:
             new_file = inner.pop()
-          push(side, new_file)
+          push(file_stack=side, next_file=new_file)
         elif match.group('directive') in ['define','local']:
           for values in reversed(stack):
             if match.group('name'):
@@ -165,8 +173,10 @@ def preprocess(name, values={}, output=print):
             ignoring = 1
             push()
           else:
-            for v in value:
-              push()
+            values = stack[-1]
+            original = current
+            for v in reversed(value):
+              push(next_file=copy_file(original),values=values)
               if match.group('name'):
                 stack[-1][match.group('name')] = v
               else:
@@ -177,4 +187,6 @@ def preprocess(name, values={}, output=print):
                         if match.group('directive').endswith('def')
                         else values[match.group('name')]))
           push()
+        #elif comment directive
+        #  pass
         break

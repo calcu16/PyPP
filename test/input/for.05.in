@@ -1,0 +1,5 @@
+#define a "Goodbye"
+#define b "Cruel "
+#for "({'a' : 'Hello', 'b' : ''}, {})"
+%(a)s %(b)sWorld!
+#end
