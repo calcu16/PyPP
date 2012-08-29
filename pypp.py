@@ -34,6 +34,7 @@ def preprocess(name, values={}, output=print):
     values : The default values for insertion (default: {})
     output : An output function (default: print)
   '''
+  # imports required for this module
   from ast import literal_eval
   from datetime import datetime
   from os import path
@@ -67,6 +68,8 @@ def preprocess(name, values={}, output=print):
     '__TIME__' : today.strftime('%H:%M:%S'),
     '__LEVEL__' : 0,
   }
+  # for copying a file while still having access to it's original locations
+  #  used for the #for directive
   class copy_file(object):
     def __init__(self, file):
       self.file = file
@@ -90,11 +93,16 @@ def preprocess(name, values={}, output=print):
       if self.closed:
         raise ValueError("I/O operation on closed file.")
       self.file.seek(offset)
+  ## FUNCTION START
+  # if output is none then use identity function
   if not output:
     output = lambda a : a
+  # the current file
   current = open(name, 'r')
+  # file stacks
   inner, outer = [], []
   
+  # build the initial stack
   stack  = [dict(defaults)]
   stack[-1].update(values)
   stack.append(dict(stack[-1]))
@@ -103,8 +111,11 @@ def preprocess(name, values={}, output=print):
   stack[-1]['__LEVEL__'] = 1
   match  = None
   
+  # are we ignoring the input
+  #  used for if type commands
   ignoring = 0
   
+  # push values onto the stack
   def push(file_stack=outer, next_file=None, values=None):
     nonlocal stack, match, current
     if not values:
@@ -117,6 +128,7 @@ def preprocess(name, values={}, output=print):
       stack[-1]['__LEVEL__'] = len(stack) - 1
     file_stack.append(current)
     current = next_file if next_file else copy_file(current)
+  # pop values from the stack
   def pop():
     nonlocal stack, current
     stack.pop()
@@ -125,6 +137,7 @@ def preprocess(name, values={}, output=print):
       current = outer.pop()
     except IndexError:
       current = None
+  # read-eval print loop
   while current:
     line = current.readline()
     stack[-1]['__LINE__'] = int(stack[-1]['__LINE__']) + 1
@@ -132,70 +145,91 @@ def preprocess(name, values={}, output=print):
       pop()
     else:
       line = line.rstrip()
+      # breaks most of the time, only continues with ## directive
       while line:
         try:
+          # get first match
           match = next(match for match in (directive.match(line) for directive in directives) if match)
         except StopIteration:
+          # no matches
           match = None
         # Giant if statement of death, yay parsing
-        if not line:
-          pass
-        elif ignoring and not match:
+        if ignoring and not match:
+          # ignoring this line
           pass
         elif not match:
+          # print non-directive line
           output(stack[-1]['__INDENT__'] + line % stack[-1])
         elif not match.group('directive'):
-          stack[-1]['__DIRECTIVE__'] = line
+          # bad directive
           raise SyntaxError("""Invalid directive""", (stack[-1]['__FILE__'], stack[-1]['__LINE__'], len(match.group('valid')), line))
         elif match.group('directive') == 'end':
+          # at the end of a block
           if ignoring:
             ignoring -= 1
           if not ignoring:
+            # no longer ignoring
             pop()
         elif ignoring and match.group('directive') in ['if','ifn','ifdef','ifndef','for']:
+          # beginning a new block while ignoring
           ignoring += 1
         elif ignoring <= 1 and match.group('directive') == 'else':
+          # was ignoring, but no longer
           ignoring = not ignoring
         elif ignoring <= 1 and match.group('directive') in ['elif','elifn','elifdef','elifndef']:
+          # maybe not ignoring anymore
           ignoring = not ignoring or \
                       (('n' in match.group('directive')) ==
                         bool((match.group('name') in stack[-1])
                           if match.group('directive').endswith('def')
                           else stack[-1][match.group('name')]))
         elif ignoring:
+          # this directive is not interesting when ignored
           pass
         elif match.group('directive') == '#':
+          # after match rerun line
           line = match.group('value') % stack[-1]
           continue
         elif match.group('directive') in ['include','inside']:
+          # add the contents of another file
           side = outer if match.group('directive') == 'include' else inner
           if match.group('name'):
             loc = path.dirname(current.name)
             rel = match.group('name')[1:-1]
             new_file = open(path.join(loc, rel), 'r')
           else:
+            # insert the file this is surrounding
             new_file = inner.pop()
           push(file_stack=side, next_file=new_file)
         elif match.group('directive') in ['define','local']:
+          # the scoope level
           level = int(match.group('level') if match.group('level') else 0)
+          # get equivalent global scope
           if match.group('directive') == 'define':
             level = len(stack) - level - 2
+          # go through stack defining name = value
           for i, values in enumerate(reversed(stack)):
             if level < i:
               break
             if match.group('name'):
               values[match.group('name')] = match.group('value')[1:-1] % values
             else:
+              # no value, undef instead
               del values[match.group('name')]
         elif match.group('directive') == 'for':
+          # iterates through values
           value = match.group('value')
           if value[0] == '"':
+            # constant
             value = value[1:-1]
           else:
+            # variable
             value = stack[-1][match.group('value')]
           if isinstance(value,str):
+            # convert string to literal
             value = literal_eval(value)
           if not len(value):
+            # nothing to iterate over
             ignoring = 1
             push()
           else:
@@ -206,8 +240,10 @@ def preprocess(name, values={}, output=print):
               if match.group('name'):
                 stack[-1][match.group('name')] = v
               else:
+                # expect v to be a dictionary
                 stack[-1].update(v)
         elif match.group('directive') in ['if','ifn','ifdef','ifndef']:
+          # conditionally ignore
           ignoring = (('n' in match.group('directive')) ==
                       bool((match.group('name') in stack[-1])
                         if match.group('directive').endswith('def')
