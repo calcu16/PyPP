@@ -1,0 +1,6 @@
+e ^ pi i + %(__LINE__)s = 0
+1 + 1 = %(__LINE__)s
+Hello World!
+2 + 2 =  2 * 2 = 2 ^ 2 = %(__LINE__)s
+#local __LINE__ "41"
+6 * 9 = %(__LINE__)s

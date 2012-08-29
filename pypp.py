@@ -77,8 +77,8 @@ def preprocess(name, values={}, output=print):
   
   stack  = [dict(defaults)]
   stack[-1].update(values)
-  stack[-1]['__file__'] = path.abspath(name)
-  stack[-1]['__line__'] = 0
+  stack[-1]['__FILE__'] = path.abspath(name)
+  stack[-1]['__LINE__'] = 0
   match  = None
   
   ignoring = 0
@@ -90,8 +90,8 @@ def preprocess(name, values={}, output=print):
     stack.append(dict(values))
     stack[-1]['__INDENT__'] += match.group('indent')
     if next_file:
-      stack[-1]['__file__'] = path.abspath(next_file.name)
-      stack[-1]['__line__'] = 0
+      stack[-1]['__FILE__'] = path.abspath(next_file.name)
+      stack[-1]['__LINE__'] = 0
     file_stack.append(current)
     current = next_file if next_file else copy_file(current)
   def pop():
@@ -104,7 +104,7 @@ def preprocess(name, values={}, output=print):
       current = None
   while current:
     line = current.readline()
-    stack[-1]['__line__'] = int(stack[-1]['__line__']) + 1
+    stack[-1]['__LINE__'] = int(stack[-1]['__LINE__']) + 1
     if not line:
       pop()
     else:
