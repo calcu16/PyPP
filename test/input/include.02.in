@@ -1,0 +1,2 @@
+#local test "Hello"
+#include "include.02.in.0"

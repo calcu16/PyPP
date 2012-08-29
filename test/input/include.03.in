@@ -1,0 +1,3 @@
+#define test "Hello World!"
+#include "include.03.in.0"
+%(test)s

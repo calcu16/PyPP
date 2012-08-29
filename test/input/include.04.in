@@ -1,0 +1,3 @@
+#define test "Goodbye Moon!"
+#include "include.04.in.0"
+%(test)s
