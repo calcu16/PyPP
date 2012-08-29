@@ -160,14 +160,14 @@ def preprocess(name, values={}, output=print):
         elif match.group('directive') in ['define','local']:
           level = int(match.group('level') if match.group('level') else 0)
           if match.group('directive') == 'define':
-            level = len(stack) - level
+            level = len(stack) - level - 2
           for i, values in enumerate(reversed(stack)):
+            if level < i:
+              break
             if match.group('name'):
               values[match.group('name')] = match.group('value')[1:-1] % values
             else:
               del values[match.group('name')]
-            if level == i:
-              break
         elif match.group('directive') == 'for':
           value = match.group('value')
           if value[0] == '"':

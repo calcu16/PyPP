@@ -1,0 +1,6 @@
+#define test "Hello"
+#ifn
+#local base "%(__LEVEL__)s"
+###define %(base)s test "Goodbye"
+#end
+%(test)s World!
