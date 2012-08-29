@@ -32,10 +32,10 @@ from re import compile as regex
 
 directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)\s*(?P<name>".*")?\s*$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>".*")?\s*$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\w+)\s?(?P<value>".*")?\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\w*)\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)$'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\S+)\s+)?(?P<value>(?:".*"|\S+))\s*$'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>)(?P<value>.*)$'''),
