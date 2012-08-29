@@ -42,7 +42,7 @@ def preprocess(name, values={}, output=print):
   # regex for matching various directives
   directives = (
     regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)(?:\s+(?P<name>".*"))?\s*$'''),
-    regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s+(?:(?P<level>\d+)\s+)?(?P<name>\w+)\s+(?P<value>".*")?\s*$'''),
+    regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s+(?:(?P<level>\d+)\s+)?(?P<name>\w+)(?:\s+(?P<value>".*"))?\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)(?:\s+(?P<name>\w+))?\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s+(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
@@ -62,7 +62,6 @@ def preprocess(name, values={}, output=print):
   # set of default values
   defaults = {
     None         : '',
-    ''           : '',
    r'\n'         : '\n',
     '__INDENT__' : '',
     '__DATE__'   : today.strftime('%b %d %Y'),
@@ -77,7 +76,10 @@ def preprocess(name, values={}, output=print):
       self.name = file.name
       self.closed = file.closed
       self.offset = file.tell()
-      self.stack  = []
+      if isinstance(file, copy_file):
+        self.stack  = file.stack
+      else:
+        self.stack = []
     def pushline(self, line):
       self.stack.append(line)
     def pushlines(self, lines):
@@ -170,7 +172,7 @@ def preprocess(name, values={}, output=print):
         output(stack[-1]['__INDENT__'] + line % stack[-1])
       elif not match.group('directive'):
         # bad directive
-        raise SyntaxError("""Invalid directive""", (stack[-1]['__FILE__'], stack[-1]['__LINE__'], len(match.group('valid')), line))
+        raise SyntaxError("Invalid directive", (stack[-1]['__FILE__'], stack[-1]['__LINE__'], len(match.group('valid')), line))
       elif match.group('directive') == 'end':
         # at the end of a block
         if ignoring:
@@ -197,7 +199,7 @@ def preprocess(name, values={}, output=print):
       elif match.group('directive') == '#':
         # after match rerun line
         line = match.group('value') % stack[-1]
-        current.pushlines(line.split('\n'))
+        current.pushlines(tuple(match.group('indent') + subline for subline in line.split('\n')))
       elif match.group('directive') in ['include','inside']:
         # add the contents of another file
         side = outer if match.group('directive') == 'include' else inner
@@ -219,7 +221,7 @@ def preprocess(name, values={}, output=print):
         for i, values in enumerate(reversed(stack)):
           if level < i:
             break
-          if match.group('name'):
+          if match.group('value'):
             values[match.group('name')] = match.group('value')[1:-1] % values
           else:
             # no value, undef instead
