@@ -1,0 +1,3 @@
+#define test "test2"
+#define test2 "Hello"
+##%%(%(test)s)s World!

@@ -1,0 +1,4 @@
+#define loop "({'a' : 'Hello'}, {'b' : 'World'})"
+#for loop
+%(a)s %(b)s!
+#end

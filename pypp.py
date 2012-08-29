@@ -35,7 +35,7 @@ directives = (
   regex(r'''(?P<indent>\s*)[#](?P<directive>define|local)\s*(?P<name>\S+)\s?(?P<value>".*")?'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>(?:el)?ifn?(?:def)?)\s*(?P<name>\S*)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>[#])(?P<value>.*)'''),
-  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?P<name>\S*)\s*(?P<value>\S+)'''),
+  regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s*(?:(?P<name>\S+)\s+)?(?P<value>\S+)'''),
   regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)'''),
 )
 
@@ -56,13 +56,15 @@ class copy_file(object):
     self.offset = file.tell()
   def readline(self):
     if self.offset is not None:
-      self.file.seek(self.offset)
+      self.seek(self.offset)
       self.offset = None
     return self.file.readline()
   def close(self):
     pass
   def tell(self):
     return self.file.tell() if self.offset is None else self.offset
+  def seek(self, offset):
+    self.file.seek(offset)
 
 def preprocess(name, values={}, output=print):
   global directives, defaults
@@ -135,9 +137,14 @@ def preprocess(name, values={}, output=print):
           line = match.group('value') % values
           continue
         elif match.group('directive') in ['include','inside']:
-          push(outer if match.group('directive') == 'include' else inner,
-               open(path.join(path.dirname(current.name), match.group('name')[1:-1]), 'r')
-                if match.group('name') else inner.pop())
+          side = outer if match.group('directive') == 'include' else inner
+          if match.group('name'):
+            loc = path.dirname(current.name)
+            rel = match.group('name')[1:-1]
+            new_file = open(path.join(loc, rel), 'r')
+          else:
+            new_file = inner.pop()
+          push(side, new_file)
         elif match.group('directive') in ['define','local']:
           for values in reversed(stack):
             if match.group('name'):
@@ -149,11 +156,10 @@ def preprocess(name, values={}, output=print):
         elif match.group('directive') == 'for':
           value = stack[-1][match.group('value')]
           if isinstance(value,str):
-            value = literal__eval(value)
+            value = literal_eval(value)
           if not len(value):
             ignoring = 1
-            outer.append(current)
-            current = copy_file(current)
+            push()
           else:
             for v in value:
               push()
