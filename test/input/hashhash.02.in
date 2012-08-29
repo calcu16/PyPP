@@ -1,0 +1,2 @@
+###define a "Hello"%(\n)s#define b "World"
+%(a)s %(b)s!
