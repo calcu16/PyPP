@@ -144,7 +144,7 @@ def preprocess(name, values={}, output=print):
     if not line:
       pop()
     else:
-      line = line.rstrip()
+      line = line.rstrip('\n\r')
       # breaks most of the time, only continues with ## directive
       while line:
         try:
