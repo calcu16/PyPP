@@ -26,7 +26,7 @@
 # of the authors and should not be interpreted as representing official policies, 
 # either expressed or implied, of the FreeBSD Project.
 '''This module provides a text preprocessor for python.'''
-def preprocess(name, values={}, output=print):
+def preprocess(name, values={}, output=print, root='/'):
   '''Preprocess the file given by name
   
   Arguments:
@@ -113,6 +113,8 @@ def preprocess(name, values={}, output=print):
   current = copy_file(open(name, 'r'))
   # file stacks
   inner, outer = [], []
+  
+  root = path.abspath(root)
   
   # build the initial stack
   stack  = [dict(defaults)]
@@ -206,6 +208,9 @@ def preprocess(name, values={}, output=print):
         if match.group('name'):
           loc = path.dirname(current.name)
           rel = match.group('name')[1:-1]
+          if rel[0] == '/':
+            rel = rel[1:]
+            loc = root
           new_file = copy_file(open(path.join(loc, rel), 'r'))
         else:
           # insert the file this is surrounding
