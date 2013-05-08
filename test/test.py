@@ -32,6 +32,8 @@ import sys
 import unittest
 
 import pypp
+def error():
+    raise Exception()
 
 class TestPyPP(unittest.TestCase):
   def setUp(self):
@@ -39,14 +41,15 @@ class TestPyPP(unittest.TestCase):
   def line_tester(self, file):
     it = iter(file)
     return lambda line : self.assertEqual(next(it), line + '\n')
-  def run_test(self, name, values = {}):
+  def run_test(self, name):
+    values = {'test' : 'Hello World!', 'upper' : str.upper, 'error' : error }
     if os.path.exists('test/golden/%s.gold' % name):
       with open('test/golden/%s.gold' % name, 'r') as file:
         pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
         self.assertRaises(StopIteration, next, file)
     else:
       it = iter(('Hello World!\n',))
-      pypp.preprocess('test/input/%s.in' % name, output=self.line_tester(it), root="test/input")
+      pypp.preprocess('test/input/%s.in' % name, values, output=self.line_tester(it), root="test/input")
       self.assertRaises(StopIteration, next, it)
 
 def addTest(name):

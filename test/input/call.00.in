@@ -1,0 +1,3 @@
+#define h "h"
+#call H=upper h
+%(H)sello World!

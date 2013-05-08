@@ -39,6 +39,7 @@ def preprocess(name, values={}, output=print, root='/'):
   from datetime import datetime
   from os import path
   from re import compile as regex
+  from functools import partial
   # regex for matching various directives
   directives = (
     regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)(?:\s+(?P<name>".*"))?\s*$'''),
@@ -48,6 +49,7 @@ def preprocess(name, values={}, output=print, root='/'):
     regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s+(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
+    regex(r'''(?P<indent>\s*)[#](?P<directive>call)\s+(?:(?P<return>\w+)\s*=\s*)?(?P<func>\w+)(?P<args>\s+\w+)*\s*$'''),
   # catch malformed directives
     regex(r'''(?P<directive>)(?P<valid>\s*[#](?:include|inside)(\s+".*"?)?\s*)'''),
     regex(r'''(?P<directive>)(?P<valid>\s*[#](?:define|local)(\s+(?:\d+\s+)?(?:\w+\s+(?:".*")?)?)?\s*)'''),
@@ -57,6 +59,9 @@ def preprocess(name, values={}, output=print, root='/'):
   # catch directive-like objects, probably an error
     regex(r'''(?P<directive>)(?P<valid>\s*[#]).*$'''),
   )
+
+  arguments = regex(r'''\s+(?P<var>\w+)''')
+
   # provide __DATE__/__TIME__ for file generation timestamps
   today = datetime.today()
   # set of default values
@@ -231,6 +236,13 @@ def preprocess(name, values={}, output=print, root='/'):
           else:
             # no value, undef instead
             del values[match.group('name')]
+      elif match.group('directive') == 'call':
+        func = stack[-1][match.group('func')]
+        for arg in arguments.finditer(match.group('args')):
+          func = partial(func, stack[-1][arg.group('var')])
+        result = func()
+        if match.group('return'):
+          stack[-1][match.group('return')] = result
       elif match.group('directive') == 'for':
         # iterates through values
         value = match.group('value')
