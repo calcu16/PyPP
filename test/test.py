@@ -46,7 +46,7 @@ class TestPyPP(unittest.TestCase):
         self.assertRaises(StopIteration, next, file)
     else:
       it = iter(('Hello World!\n',))
-      pypp.preprocess('test/input/%s.in' % name, output=self.line_tester(it))
+      pypp.preprocess('test/input/%s.in' % name, output=self.line_tester(it), root="test/input")
       self.assertRaises(StopIteration, next, it)
 
 def addTest(name):
