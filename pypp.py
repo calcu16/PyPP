@@ -72,6 +72,7 @@ def preprocess(name, values={}, output=print, root='/'):
     '__DATE__'   : today.strftime('%b %d %Y'),
     '__TIME__'   : today.strftime('%H:%M:%S'),
     '__LEVEL__'  : 0,
+    '__REPR__'   : (lambda s : repr(s))
   }
   # for copying a file while still having access to it's original locations
   #  used for the #for directive
@@ -176,6 +177,8 @@ def preprocess(name, values={}, output=print, root='/'):
         pass
       elif not match:
         # print non-directive line
+        if line.startswith(r'\#'):
+          line = line[1:]
         output(stack[-1]['__INDENT__'] + line % stack[-1])
       elif not match.group('directive'):
         # bad directive
