@@ -40,6 +40,7 @@ def preprocess(name, values={}, output=print, root='/'):
   from os import path
   from re import compile as regex
   from functools import partial
+
   # regex for matching various directives
   directives = (
     regex(r'''(?P<indent>\s*)[#](?P<directive>include|inside)(?:\s+(?P<name>".*"))?\s*$'''),
@@ -49,7 +50,7 @@ def preprocess(name, values={}, output=print, root='/'):
     regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s+(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
-    regex(r'''(?P<indent>\s*)[#](?P<directive>call)\s+(?:(?P<return>\w+)\s*=\s*)?(?P<func>\w+)(?P<args>\s+\w+)*\s*$'''),
+    regex(r'''(?P<indent>\s*)[#](?P<directive>call)\s+(?:(?P<return>\w+)\s*=\s*)?(?P<func>\w+)(?P<args>(?:\s+(?:"(?:[^\\"]|\\.)*"|\w+))*)\s*$'''),
   # catch malformed directives
     regex(r'''(?P<directive>)(?P<valid>\s*[#](?:include|inside)(\s+".*"?)?\s*)'''),
     regex(r'''(?P<directive>)(?P<valid>\s*[#](?:define|local)(\s+(?:\d+\s+)?(?:\w+\s+(?:".*")?)?)?\s*)'''),
@@ -60,7 +61,7 @@ def preprocess(name, values={}, output=print, root='/'):
     regex(r'''(?P<directive>)(?P<valid>\s*[#]).*$'''),
   )
 
-  arguments = regex(r'''\s+(?P<var>\w+)''')
+  arguments = regex(r'''\s+(?:(?P<str>"(?:[^\\"]|\\.)*")|(?P<var>\w+))''')
 
   # provide __DATE__/__TIME__ for file generation timestamps
   today = datetime.today()
@@ -71,7 +72,7 @@ def preprocess(name, values={}, output=print, root='/'):
     '__INDENT__' : '',
     '__DATE__'   : today.strftime('%b %d %Y'),
     '__TIME__'   : today.strftime('%H:%M:%S'),
-    '__LEVEL__'  : 0,
+    '__LEVEL__'  : 3,
     '__REPR__'   : (lambda s : repr(s))
   }
   # for copying a file while still having access to it's original locations
@@ -123,12 +124,12 @@ def preprocess(name, values={}, output=print, root='/'):
   root = path.abspath(root)
   
   # build the initial stack
-  stack  = [dict(defaults)]
+  stack  = [{},dict(defaults)]
   stack[-1].update(values)
   stack.append(dict(stack[-1]))
   stack[-1]['__FILE__'] = path.abspath(name)
   stack[-1]['__LINE__'] = 0
-  stack[-1]['__LEVEL__'] = 1
+  stack[-1]['__LEVEL__'] = 3
   match  = None
   
   # are we ignoring the input
@@ -226,23 +227,27 @@ def preprocess(name, values={}, output=print, root='/'):
         push(file_stack=side, next_file=new_file)
       elif match.group('directive') in ['define','local']:
         # the scoope level
-        level = int(match.group('level') if match.group('level') else 0)
+        level = int(match.group('level') if match.group('level') else (0 if match.group('directive') == 'local' else 1))
+        # level = int(match.group('level') if match.group('level') else 0)
         # get equivalent global scope
         if match.group('directive') == 'define':
-          level = len(stack) - level - 2
+          level = len(stack) - level - 1 
         # go through stack defining name = value
         for i, values in enumerate(reversed(stack)):
           if level < i:
             break
           if match.group('value'):
-            values[match.group('name')] = match.group('value')[1:-1] % values
+            values[match.group('name')] = match.group('value')[1:-1] % stack[-1]
           else:
             # no value, undef instead
             del values[match.group('name')]
       elif match.group('directive') == 'call':
         func = stack[-1][match.group('func')]
         for arg in arguments.finditer(match.group('args')):
-          func = partial(func, stack[-1][arg.group('var')])
+          if arg.group('var'):
+            func = partial(func, stack[-1][arg.group('var')])
+          else:
+            func = partial(func, arg.group('str')[1:-1] % stack[-1])
         result = func()
         if match.group('return'):
           stack[-1][match.group('return')] = result
