@@ -50,7 +50,7 @@ def preprocess(name, values={}, output=print, root='/'):
     regex(r'''(?P<indent>\s*)[#](?P<directive>for)\s+(?:(?P<name>\w+)\s+)?(?P<value>(?:".*"|\w+))\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>end|else)\s*$'''),
     regex(r'''(?P<indent>\s*)[#](?P<directive>\s)(?P<value>.*)$'''),
-    regex(r'''(?P<indent>\s*)[#](?P<directive>call)\s+(?:(?P<return>\w+)\s*=\s*)?(?P<func>\w+)(?P<args>(?:\s+(?:"(?:[^\\"]|\\.)*"|\w+))*)\s*$'''),
+    regex(r'''(?P<indent>\s*)[#](?P<directive>call)\s+(?:(?:(?P<level>\d+)\s+)?(?P<returns>\w+(?:\s*,\s*\w+)*\s*,?\s*)\s*=\s*)?(?P<func>\w+)(?P<args>(?:\s+(?:"(?:[^\\"]|\\.)*"|\w+))*)\s*$'''),
   # catch malformed directives
     regex(r'''(?P<directive>)(?P<valid>\s*[#](?:include|inside)(\s+".*"?)?\s*)'''),
     regex(r'''(?P<directive>)(?P<valid>\s*[#](?:define|local)(\s+(?:\d+\s+)?(?:\w+\s+(?:".*")?)?)?\s*)'''),
@@ -158,134 +158,157 @@ def preprocess(name, values={}, output=print, root='/'):
       current = outer.pop()
     except IndexError:
       current = None
+  def set_value(level, key, value):
+    nonlocal stack
+    if level < 0:
+      level = len(stack) + level
+    level = len(stack) - level - 1
+    for i, values in enumerate(reversed(stack)):
+      if level < i:
+        break
+      values[key] = value
+  def del_key(level, key):
+    nonlocal stack
+    if level < 0:
+      level = len(stack) + level
+    level = len(stack) - level - 1
+    for i, values in enumerate(reversed(stack)):
+      if level < i:
+        break
+      del values[key]
   # read-eval print loop
-  while current:
-    line = current.readline()
-    stack[-1]['__LINE__'] = int(stack[-1]['__LINE__']) + 1
-    if not line:
-      pop()
-    else:
-      line = line.rstrip('\n\r')
-      try:
-        # get first match
-        match = next(match for match in (directive.match(line) for directive in directives) if match)
-      except StopIteration:
-        # no matches
-        match = None
-      # Giant if statement of death, yay parsing
-      if ignoring and not match:
-        # ignoring this line
-        pass
-      elif not match:
-        # print non-directive line
-        if line.startswith(r'\#'):
-          line = line[1:]
-        output(stack[-1]['__INDENT__'] + line % stack[-1])
-      elif not match.group('directive'):
-        # bad directive
-        raise SyntaxError("Invalid directive", (stack[-1]['__FILE__'], stack[-1]['__LINE__'], len(match.group('valid')), line))
-      elif match.group('directive') == 'end':
-        # at the end of a block
-        if ignoring:
-          ignoring -= 1
-        if not ignoring:
-          # no longer ignoring
-          pop()
-      elif ignoring and match.group('directive') in ['if','ifn','ifdef','ifndef','for']:
-        # beginning a new block while ignoring
-        ignoring += 1
-      elif ignoring <= 1 and match.group('directive') == 'else':
-        # was ignoring, but no longer
-        ignoring = not ignoring
-      elif ignoring <= 1 and match.group('directive') in ['elif','elifn','elifdef','elifndef']:
-        # maybe not ignoring anymore
-        ignoring = not ignoring or \
-                    (('n' in match.group('directive')) ==
+  try:
+    while current:
+      line = current.readline()
+      stack[-1]['__LINE__'] = int(stack[-1]['__LINE__']) + 1
+      if not line:
+        pop()
+      else:
+        line = line.rstrip('\n\r')
+        try:
+          # get first match
+          match = next(match for match in (directive.match(line) for directive in directives) if match)
+        except StopIteration:
+          # no matches
+          match = None
+        # Giant if statement of death, yay parsing
+        if ignoring and not match:
+          # ignoring this line
+          pass
+        elif not match:
+          # print non-directive line
+          if line.startswith(r'\#'):
+            line = line[1:]
+          output(stack[-1]['__INDENT__'] + line % stack[-1])
+        elif not match.group('directive'):
+          # bad directive
+          raise SyntaxError("Invalid directive", (stack[-1]['__FILE__'], stack[-1]['__LINE__'], len(match.group('valid')), line))
+        elif match.group('directive') == 'end':
+          # at the end of a block
+          if ignoring:
+            ignoring -= 1
+          if not ignoring:
+            # no longer ignoring
+            pop()
+        elif ignoring and match.group('directive') in ['if','ifn','ifdef','ifndef','for']:
+          # beginning a new block while ignoring
+          ignoring += 1
+        elif ignoring <= 1 and match.group('directive') == 'else':
+          # was ignoring, but no longer
+          ignoring = not ignoring
+        elif ignoring <= 1 and match.group('directive') in ['elif','elifn','elifdef','elifndef']:
+          # maybe not ignoring anymore
+          ignoring = not ignoring or \
+                      (('n' in match.group('directive')) ==
+                        bool((match.group('name') in stack[-1])
+                          if match.group('directive').endswith('def')
+                          else stack[-1][match.group('name')]))
+        elif ignoring:
+          # this directive is not interesting when ignored
+          pass
+        elif match.group('directive') == '#':
+          # after match rerun line
+          line = match.group('value') % stack[-1]
+          current.pushlines(tuple(match.group('indent') + subline for subline in line.split('\n')))
+        elif match.group('directive') in ['include','inside']:
+          # add the contents of another file
+          side = outer if match.group('directive') == 'include' else inner
+          if match.group('name'):
+            loc = path.dirname(current.name)
+            rel = match.group('name')[1:-1]
+            if rel[0] == '/':
+              rel = rel[1:]
+              loc = root
+            new_file = copy_file(open(path.join(loc, rel), 'r'))
+          else:
+            # insert the file this is surrounding
+            new_file = inner.pop()
+          push(file_stack=side, next_file=new_file)
+        elif match.group('directive') in ['define','local']:
+          # the scoope level
+          level = int(match.group('level') if match.group('level') else (0 if match.group('directive') == 'local' else 1))
+          # level = int(match.group('level') if match.group('level') else 0)
+          # get equivalent global scope
+          if match.group('directive') == 'local':
+            level = -level - 1
+          if match.group('value'):
+            set_value(level, match.group('name'), match.group('value')[1:-1] % stack[-1])
+          else:
+            del_key(level, match.group('name'))
+        elif match.group('directive') == 'call':
+          func = stack[-1][match.group('func')]
+          for arg in arguments.finditer(match.group('args')):
+            if arg.group('var'):
+              func = partial(func, stack[-1][arg.group('var')])
+            else:
+              func = partial(func, arg.group('str')[1:-1] % stack[-1])
+          result = func()
+          level = int(match.group('level')) if match.group('level') else -1
+          if not match.group('returns'):
+            pass
+          elif ',' in match.group('returns'):
+            for i,n in enumerate(match.group('returns').split(',')):
+              set_value(level, n.strip(), result[i])
+          else:
+            set_value(level, match.group('returns').strip(), result)
+        elif match.group('directive') == 'for':
+          # iterates through values
+          value = match.group('value')
+          if value[0] == '"':
+            # constant
+            value = value[1:-1]
+          else:
+            # variable
+            value = stack[-1][match.group('value')]
+          if isinstance(value,str):
+            # convert string to literal
+            value = literal_eval(value)
+          if not len(value):
+            # nothing to iterate over
+            ignoring = 1
+            push()
+          else:
+            values = stack[-1]
+            original = current
+            for v in reversed(value):
+              push(next_file=copy_file(original),values=values)
+              if match.group('name'):
+                stack[-1][match.group('name')] = v
+              else:
+                # expect v to be a dictionary
+                stack[-1].update(v)
+        elif match.group('directive') in ['if','ifn','ifdef','ifndef']:
+          # conditionally ignore
+          ignoring = (('n' in match.group('directive')) ==
                       bool((match.group('name') in stack[-1])
                         if match.group('directive').endswith('def')
                         else stack[-1][match.group('name')]))
-      elif ignoring:
-        # this directive is not interesting when ignored
-        pass
-      elif match.group('directive') == '#':
-        # after match rerun line
-        line = match.group('value') % stack[-1]
-        current.pushlines(tuple(match.group('indent') + subline for subline in line.split('\n')))
-      elif match.group('directive') in ['include','inside']:
-        # add the contents of another file
-        side = outer if match.group('directive') == 'include' else inner
-        if match.group('name'):
-          loc = path.dirname(current.name)
-          rel = match.group('name')[1:-1]
-          if rel[0] == '/':
-            rel = rel[1:]
-            loc = root
-          new_file = copy_file(open(path.join(loc, rel), 'r'))
-        else:
-          # insert the file this is surrounding
-          new_file = inner.pop()
-        push(file_stack=side, next_file=new_file)
-      elif match.group('directive') in ['define','local']:
-        # the scoope level
-        level = int(match.group('level') if match.group('level') else (0 if match.group('directive') == 'local' else 1))
-        # level = int(match.group('level') if match.group('level') else 0)
-        # get equivalent global scope
-        if match.group('directive') == 'define':
-          level = len(stack) - level - 1 
-        # go through stack defining name = value
-        for i, values in enumerate(reversed(stack)):
-          if level < i:
-            break
-          if match.group('value'):
-            values[match.group('name')] = match.group('value')[1:-1] % stack[-1]
-          else:
-            # no value, undef instead
-            del values[match.group('name')]
-      elif match.group('directive') == 'call':
-        func = stack[-1][match.group('func')]
-        for arg in arguments.finditer(match.group('args')):
-          if arg.group('var'):
-            func = partial(func, stack[-1][arg.group('var')])
-          else:
-            func = partial(func, arg.group('str')[1:-1] % stack[-1])
-        result = func()
-        if match.group('return'):
-          stack[-1][match.group('return')] = result
-      elif match.group('directive') == 'for':
-        # iterates through values
-        value = match.group('value')
-        if value[0] == '"':
-          # constant
-          value = value[1:-1]
-        else:
-          # variable
-          value = stack[-1][match.group('value')]
-        if isinstance(value,str):
-          # convert string to literal
-          value = literal_eval(value)
-        if not len(value):
-          # nothing to iterate over
-          ignoring = 1
           push()
-        else:
-          values = stack[-1]
-          original = current
-          for v in reversed(value):
-            push(next_file=copy_file(original),values=values)
-            if match.group('name'):
-              stack[-1][match.group('name')] = v
-            else:
-              # expect v to be a dictionary
-              stack[-1].update(v)
-      elif match.group('directive') in ['if','ifn','ifdef','ifndef']:
-        # conditionally ignore
-        ignoring = (('n' in match.group('directive')) ==
-                    bool((match.group('name') in stack[-1])
-                      if match.group('directive').endswith('def')
-                      else stack[-1][match.group('name')]))
-        push()
-      #elif comment directive
-      #  pass
+        #elif comment directive
+        #  pass
+  finally:
+    while current:
+      pop();
   return stack[0]
 
 # command line utility

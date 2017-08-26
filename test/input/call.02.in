@@ -1,0 +1,9 @@
+#define s "Hello,World!"
+#if s
+#call 0 h,w=split s ","
+#end
+#define s "Goodbye,Moon!"
+#if s
+#call h,w=split s ","
+#end
+%(h)s %(w)s

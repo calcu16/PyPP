@@ -1,0 +1,3 @@
+#define s "Hello,World!"
+#call h,w=split s ","
+%(h)s %(w)s

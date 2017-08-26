@@ -42,7 +42,7 @@ class TestPyPP(unittest.TestCase):
     it = iter(file)
     return lambda line : self.assertEqual(next(it), line + '\n')
   def run_test(self, name):
-    values = {'test' : 'Hello World!', 'upper' : str.upper, 'error' : error }
+    values = {'test' : 'Hello World!', 'upper' : str.upper, 'split' : str.split, 'error' : error }
     if os.path.exists('test/golden/%s.gold' % name):
       with open('test/golden/%s.gold' % name, 'r') as file:
         pypp.preprocess('test/input/%s.in' % name, values, self.line_tester(file))
